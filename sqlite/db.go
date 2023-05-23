@@ -2,14 +2,19 @@ package sqlite
 
 import (
 	"database/sql"
+	"embed"
 	"fmt"
-	"path/filepath"
+	"io/fs"
+	"path"
 	"sort"
 	"strconv"
 	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
 )
+
+//go:embed migrations/*.sql
+var migrationsFS embed.FS
 
 type DB struct {
 	db *sql.DB
@@ -45,7 +50,7 @@ func (db *DB) Open() error {
 }
 
 type migration = struct {
-	name      string
+	fileName  string
 	timestamp int32
 }
 
@@ -55,16 +60,16 @@ func (db *DB) migrate() error {
 		return fmt.Errorf("getting current user_version: %w", err)
 	}
 
-	fileNames, err := filepath.Glob("./migrations/*.sql")
+	fileNames, err := fs.Glob(migrationsFS, "migrations/*.sql")
 	if err != nil {
 		return err
 	}
 
-	files := make([]migration, len(fileNames))
+	files := make([]migration, 0, len(fileNames))
 	for _, name := range fileNames {
-		rawTimestamp := strings.SplitN(name, "_", 2)[0]
+		rawTimestamp := strings.SplitN(path.Base(name), "_", 2)[0]
 		if len(rawTimestamp) != 10 {
-			return fmt.Errorf("timestamp '%s' has invalid length. filename must begin with padded timestamp", rawTimestamp)
+			return fmt.Errorf("timestamp '%s' has invalid length. filename must begin with left padded timestamp", rawTimestamp)
 		}
 
 		// sqlite user_version is a 32 bit int
@@ -74,14 +79,14 @@ func (db *DB) migrate() error {
 		}
 
 		if int32(timestamp) > currentUserVersion {
-			files = append(files, migration{name: name, timestamp: int32(timestamp)})
+			files = append(files, migration{fileName: name, timestamp: int32(timestamp)})
 		}
 	}
 
 	sort.Slice(files, func(i, j int) bool { return files[i].timestamp < files[j].timestamp })
 	for _, migration := range files {
 		if err := db.migrateFile(migration); err != nil {
-			return fmt.Errorf("migrating file '%s': %w", migration.name, err)
+			return fmt.Errorf("migrating file '%s': %w", migration.fileName, err)
 		}
 	}
 
@@ -89,7 +94,16 @@ func (db *DB) migrate() error {
 }
 
 func (db *DB) migrateFile(migration migration) error {
-	return fmt.Errorf("not implemented yet")
+	buf, err := fs.ReadFile(migrationsFS, migration.fileName)
+	if err != nil {
+		return err
+	}
+
+	if _, err := db.db.Exec(string(buf)); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (db *DB) currentUserVersion() (int32, error) {

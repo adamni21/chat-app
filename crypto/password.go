@@ -45,12 +45,9 @@ func (a *argon2Hasher) Generate(password []byte) (string, error) {
 		return "", fmt.Errorf("generating random salt: %w", err)
 	}
 
-	hash, err := a.hash(password, salt)
-	if err != nil {
-		return "", fmt.Errorf("hashing password '%s' salt '%s': %w", password, salt, err)
-	}
+	hash := a.hash(password, salt)
 
-	return buildArgonString(hash, salt, a.time, a.memory, a.threads), nil
+	return a.buildArgonString(hash, salt), nil
 }
 
 func (a *argon2Hasher) Verify(password, hash []byte) (bool, error) {
@@ -64,12 +61,12 @@ func (a *argon2Hasher) Verify(password, hash []byte) (bool, error) {
 	return true, nil
 }
 
-func (p *argonParams) hash(password, salt []byte) ([]byte, error) {
-	return argon2.IDKey(password, salt, p.time, p.memory, p.threads, p.keyLen), nil
+func (p *argonParams) hash(password, salt []byte) []byte {
+	return argon2.IDKey(password, salt, p.time, p.memory, p.threads, p.keyLen)
 }
 
-func buildArgonString(hash, salt []byte, time, memory uint32, threads uint8) string {
-	return fmt.Sprintf("$%s$v=%d$m=%d,t=%d,p=%d$%s$%s", "argon2id", argon2.Version, memory, time, threads, salt, hash)
+func (p *argonParams) buildArgonString(hash, salt []byte) string {
+	return fmt.Sprintf("$%s$v=%d$m=%d,t=%d,p=%d$%s$%s", "argon2id", argon2.Version, p.memory, p.time, p.threads, salt, hash)
 }
 
 func parseArgonString(argonString string) (params *argonParams, hash, salt []byte, err error) {

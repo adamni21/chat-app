@@ -1,6 +1,7 @@
 package crypto
 
 import (
+	"bytes"
 	"fmt"
 	"reflect"
 	"testing"
@@ -27,10 +28,10 @@ func TestParseArgonString(t *testing.T) {
 	if !reflect.DeepEqual(params, *parsedParams) {
 		t.Errorf("got %+v want %+v", *parsedParams, params)
 	}
-	if !reflect.DeepEqual(hash, parsedHash) {
+	if !bytes.Equal(hash, parsedHash) {
 		t.Errorf("got %v want %v", parsedHash, hash)
 	}
-	if !reflect.DeepEqual(salt, parsedSalt) {
+	if !bytes.Equal(salt, parsedSalt) {
 		t.Errorf("got %v want %v", parsedSalt, salt)
 	}
 }

@@ -1,6 +1,7 @@
 package crypto
 
 import (
+	"bytes"
 	"crypto/rand"
 	"fmt"
 	"strings"
@@ -50,15 +51,15 @@ func (a *argon2Hasher) Generate(password []byte) (string, error) {
 	return a.buildArgonString(hash, salt), nil
 }
 
-func (a *argon2Hasher) Verify(password, hash []byte) (bool, error) {
-	salt, err := generateRandomBytes(16)
+func (a *argon2Hasher) Verify(password, argonString string) (bool, error) {
+	params, hash, salt, err := parseArgonString(argonString)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("parsing argonString '%s': %w", argonString, err)
 	}
 
-	argon2.IDKey(password, salt, a.time, a.memory, a.threads, a.keyLen)
+	match := bytes.Equal(hash, params.hash([]byte(password), salt))
 
-	return true, nil
+	return match, nil
 }
 
 func (p *argonParams) hash(password, salt []byte) []byte {
@@ -72,9 +73,6 @@ func (p *argonParams) buildArgonString(hash, salt []byte) string {
 func parseArgonString(argonString string) (params *argonParams, hash, salt []byte, err error) {
 	parts := strings.Split(argonString, "$")
 
-	hash = []byte(parts[5])
-	salt = []byte(parts[4])
-
 	var memory uint32
 	var time uint32
 	var threads uint8
@@ -86,6 +84,8 @@ func parseArgonString(argonString string) (params *argonParams, hash, salt []byt
 		return nil, nil, nil, fmt.Errorf("didn't parse all params from argonString: '%s'", argonString)
 	}
 
+	hash = []byte(parts[5])
+	salt = []byte(parts[4])
 	params = &argonParams{
 		time:    time,
 		memory:  memory,

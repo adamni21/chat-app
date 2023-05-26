@@ -2,7 +2,6 @@ package crypto
 
 import (
 	"crypto/rand"
-	"encoding/base64"
 	"fmt"
 	"strings"
 
@@ -43,10 +42,13 @@ func NewArgon2Hasher() *argon2Hasher {
 func (a *argon2Hasher) Generate(password []byte) (string, error) {
 	salt, err := generateRandomBytes(a.saltLen)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("generating random salt: %w", err)
 	}
 
-	hash := argon2.IDKey(password, salt, a.time, a.memory, a.threads, a.keyLen)
+	hash, err := a.hash(password, salt)
+	if err != nil {
+		return "", fmt.Errorf("hashing password '%s' salt '%s': %w", password, salt, err)
+	}
 
 	return buildArgonString(hash, salt, a.time, a.memory, a.threads), nil
 }
@@ -62,28 +64,19 @@ func (a *argon2Hasher) Verify(password, hash []byte) (bool, error) {
 	return true, nil
 }
 
-// func (a *argon2Hasher) hash(hash, salt []byte, time, memory uint32, threads uint8) []byte {
-
-// }
+func (p *argonParams) hash(password, salt []byte) ([]byte, error) {
+	return argon2.IDKey(password, salt, p.time, p.memory, p.threads, p.keyLen), nil
+}
 
 func buildArgonString(hash, salt []byte, time, memory uint32, threads uint8) string {
-	b64Hash := base64.StdEncoding.EncodeToString(hash)
-	b64Salt := base64.StdEncoding.EncodeToString(salt)
-
-	return fmt.Sprintf("$%s$v=%d$m=%d,t=%d,p=%d$%s$%s", "argon2id", argon2.Version, memory, time, threads, b64Salt, b64Hash)
+	return fmt.Sprintf("$%s$v=%d$m=%d,t=%d,p=%d$%s$%s", "argon2id", argon2.Version, memory, time, threads, salt, hash)
 }
 
 func parseArgonString(argonString string) (params *argonParams, hash, salt []byte, err error) {
 	parts := strings.Split(argonString, "$")
 
-	hash, err = base64.StdEncoding.DecodeString(parts[5])
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("decoding hash '%s': %w", hash, err)
-	}
-	salt, err = base64.StdEncoding.DecodeString(parts[4])
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("decoding salt '%s': %w", salt, err)
-	}
+	hash = []byte(parts[5])
+	salt = []byte(parts[4])
 
 	var memory uint32
 	var time uint32
@@ -93,7 +86,7 @@ func parseArgonString(argonString string) (params *argonParams, hash, salt []byt
 		return nil, nil, nil, err
 	}
 	if count != 3 {
-		fmt.Errorf("didn't parse all params from argonString: '%s'", argonString)
+		return nil, nil, nil, fmt.Errorf("didn't parse all params from argonString: '%s'", argonString)
 	}
 
 	params = &argonParams{

@@ -3,6 +3,7 @@ package crypto
 import (
 	"bytes"
 	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"strings"
 
@@ -67,7 +68,7 @@ func (p *argonParams) hash(password, salt []byte) []byte {
 }
 
 func (p *argonParams) buildArgonString(hash, salt []byte) string {
-	return fmt.Sprintf("$%s$v=%d$m=%d,t=%d,p=%d$%s$%s", "argon2id", argon2.Version, p.memory, p.time, p.threads, salt, hash)
+	return fmt.Sprintf("$%s$v=%d$m=%d,t=%d,p=%d$%x$%x", "argon2id", argon2.Version, p.memory, p.time, p.threads, salt, hash)
 }
 
 func parseArgonString(argonString string) (params *argonParams, hash, salt []byte, err error) {
@@ -84,14 +85,24 @@ func parseArgonString(argonString string) (params *argonParams, hash, salt []byt
 		return nil, nil, nil, fmt.Errorf("didn't parse all params from argonString: '%s'", argonString)
 	}
 
-	hash = []byte(parts[5])
-	salt = []byte(parts[4])
+	decodedHash, err := hex.DecodeString(parts[5])
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("decoding hash '%s': %w", parts[5], err)
+	}
+	decodedSalt, err := hex.DecodeString(parts[4])
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("decoding salt '%s': %w", parts[4], err)
+	}
+
+	hash = decodedHash
+	salt = decodedSalt
 	params = &argonParams{
 		time:    time,
 		memory:  memory,
 		threads: threads,
 		keyLen:  uint32(len(hash)),
 	}
+	err = nil
 
 	return
 }

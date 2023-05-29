@@ -1,6 +1,7 @@
 package sqlite
 
 import (
+	"context"
 	"database/sql"
 	"embed"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -124,4 +126,24 @@ func (db *DB) currentUserVersion() (int32, error) {
 
 func (db *DB) Close() error {
 	return db.db.Close()
+}
+
+func (db *DB) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) {
+	tx, err := db.db.BeginTx(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Tx{
+		Tx:  tx,
+		db:  db,
+		now: time.Now().UTC().Truncate(time.Second),
+	}, nil
+
+}
+
+type Tx struct {
+	*sql.Tx
+	db  *DB
+	now time.Time
 }

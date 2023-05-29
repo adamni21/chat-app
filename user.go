@@ -6,6 +6,7 @@ type User struct {
 	Id       int64
 	Username string
 	Email    string
+	Verified bool
 
 	CreatedAt time.Time
 	UpdatedAt time.Time

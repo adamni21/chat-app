@@ -1,8 +1,9 @@
 package sqlite_test
 
 import (
-	"chat-app/sqlite"
 	"testing"
+
+	"github.com/adamni21/goChat/sqlite"
 )
 
 func TestDB(t *testing.T) {

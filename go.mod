@@ -1,4 +1,4 @@
-module chat-app
+module github.com/adamni21/goChat
 
 go 1.20
 

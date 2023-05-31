@@ -41,13 +41,13 @@ func NewArgon2Hasher() *argon2Hasher {
 	}
 }
 
-func (a *argon2Hasher) Generate(password []byte) (string, error) {
+func (a *argon2Hasher) Generate(password string) (string, error) {
 	salt, err := generateRandomBytes(a.saltLen)
 	if err != nil {
 		return "", fmt.Errorf("generating random salt: %w", err)
 	}
 
-	hash := a.hash(password, salt)
+	hash := a.hash([]byte(password), salt)
 
 	return a.buildArgonString(hash, salt), nil
 }

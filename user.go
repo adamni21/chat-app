@@ -18,6 +18,6 @@ type User struct {
 }
 
 type UserService interface {
-	Create(ctx context.Context, username, email, password string) (*User, error)
-	Get(ctx context.Context, id int64) (*User, error)
+	Create(ctx context.Context, user *User, password string) error
+	// Get(ctx context.Context, id int64) (*User, error)
 }

@@ -2,11 +2,12 @@ package sqlite
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/adamni21/goChat"
 	"github.com/adamni21/goChat/crypto"
 )
+
+const service = "sqlite.userService."
 
 type userService struct {
 	db       *DB
@@ -21,30 +22,36 @@ func NewUserService(db *DB) *userService {
 }
 
 func (s *userService) Create(ctx context.Context, user *goChat.User, password string) error {
+	const op = service + "Create"
 	encryptedPw, err := s.pwHasher.Generate(password)
 	if err != nil {
-		return err
+		return goChat.NewInternalErr("generating password hash", op, err)
 	}
 
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return err
+		return goChat.NewInternalErr("beginning transaction", op, err)
 	}
 	defer tx.Rollback()
 
 	err = createUser(ctx, tx, user, encryptedPw)
 	if err != nil {
-		return err
+		return goChat.NewInternalErr("", op, err)
 	}
 
 	if err = tx.Commit(); err != nil {
-		return err
+		return goChat.NewInternalErr("committing transaction", op, err)
 	}
 
 	return nil
 }
 
 func createUser(ctx context.Context, tx *Tx, user *goChat.User, encryptedPw string) error {
+	const op = service + "create"
+
+	user.CreatedAt = tx.now
+	user.UpdatedAt = tx.now
+
 	result, err := tx.ExecContext(ctx, `
 		INSERT INTO users (
 			username,
@@ -55,16 +62,13 @@ func createUser(ctx context.Context, tx *Tx, user *goChat.User, encryptedPw stri
 		VALUES (?, ?, ?, ?)
 	`, user.Username, user.Email, false, encryptedPw)
 	if err != nil {
-		return fmt.Errorf("insert into users: %w", err)
+		return goChat.NewInternalErr("inserting into users table", op, err)
 	}
 
 	user.Id, err = result.LastInsertId()
 	if err != nil {
-		return fmt.Errorf("getting assigned id: %w", err)
+		return goChat.NewInternalErr("getting last inserted id", op, err)
 	}
-
-	user.CreatedAt = tx.now
-	user.UpdatedAt = tx.now
 
 	return nil
 }

@@ -23,6 +23,7 @@ func NewUserService(db *DB) *userService {
 
 func (s *userService) Create(ctx context.Context, user *goChat.User, password string) error {
 	const op = service + "Create"
+
 	encryptedPw, err := s.pwHasher.Generate(password)
 	if err != nil {
 		return goChat.NewInternalErr("generating password hash", op, err)
@@ -46,21 +47,58 @@ func (s *userService) Create(ctx context.Context, user *goChat.User, password st
 	return nil
 }
 
+func (s *userService) FindById(ctx context.Context, id int64) (*goChat.User, error) {
+	const op = service + "FindById"
+
+	query := `
+		SELECT id, username, email, isVerified, createdAt, updatedAt
+		FROM users
+		WHERE id = ?
+
+	`
+	rows, err := s.db.db.QueryContext(ctx, query, id)
+	if err != nil {
+		return nil, goChat.NewInternalErr("querying user", op, err)
+	}
+	defer rows.Close()
+
+	rows.Next()
+	user := &goChat.User{}
+	err = rows.Scan(&user.Id, &user.Username, &user.Email, &user.Verified, (*NullTime)(&user.CreatedAt), (*NullTime)(&user.UpdatedAt))
+	if err != nil {
+		return nil, goChat.NewInternalErr("scanning row", op, err)
+	}
+
+	return user, nil
+}
+
 func createUser(ctx context.Context, tx *Tx, user *goChat.User, encryptedPw string) error {
 	const op = service + "create"
 
 	user.CreatedAt = tx.now
 	user.UpdatedAt = tx.now
 
-	result, err := tx.ExecContext(ctx, `
+	query := `
 		INSERT INTO users (
 			username,
 			email,
     		isVerified,
-    		passwordString
+    		passwordString,
+			createdAt,
+			updatedAt
 		)
-		VALUES (?, ?, ?, ?)
-	`, user.Username, user.Email, false, encryptedPw)
+		VALUES (?, ?, ?, ?, ?, ?)
+	`
+	result, err := tx.ExecContext(
+		ctx,
+		query,
+		user.Username,
+		user.Email,
+		false,
+		encryptedPw,
+		(*NullTime)(&user.CreatedAt),
+		(*NullTime)(&user.UpdatedAt),
+	)
 	if err != nil {
 		return goChat.NewInternalErr("inserting into users table", op, err)
 	}

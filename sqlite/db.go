@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"embed"
 	"fmt"
 	"io/fs"
@@ -22,11 +23,14 @@ type DB struct {
 	db *sql.DB
 
 	DSN string
+
+	Now func() time.Time
 }
 
 func NewDB(dsn string) *DB {
 	return &DB{
 		DSN: dsn,
+		Now: time.Now().UTC,
 	}
 }
 
@@ -54,6 +58,10 @@ func (db *DB) Open() error {
 type migration = struct {
 	fileName  string
 	timestamp int32
+}
+
+func (db *DB) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+	return db.db.QueryContext(ctx, query, args...)
 }
 
 func (db *DB) migrate() error {
@@ -139,7 +147,30 @@ func (db *DB) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) {
 		db:  db,
 		now: time.Now().UTC().Truncate(time.Second),
 	}, nil
+}
 
+// NullTime represents a helper wrapper for time.Time. It automatically converts
+// time fields to/from RFC 3339 format. Also supports NULL for zero time.
+type NullTime time.Time
+
+// Scan reads a time value from the database.
+func (n *NullTime) Scan(value interface{}) error {
+	if value == nil {
+		*(*time.Time)(n) = time.Time{}
+		return nil
+	} else if value, ok := value.(string); ok {
+		*(*time.Time)(n), _ = time.Parse(time.RFC3339, value)
+		return nil
+	}
+	return fmt.Errorf("NullTime: cannot scan to time.Time: %T", value)
+}
+
+// Value formats a time value for the database.
+func (n *NullTime) Value() (driver.Value, error) {
+	if n == nil || (*time.Time)(n).IsZero() {
+		return nil, nil
+	}
+	return (*time.Time)(n).UTC().Format(time.RFC3339), nil
 }
 
 type Tx struct {

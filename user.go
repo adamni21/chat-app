@@ -19,5 +19,5 @@ type User struct {
 
 type UserService interface {
 	Create(ctx context.Context, user *User, password string) error
-	// Get(ctx context.Context, id int64) (*User, error)
+	FindById(ctx context.Context, id int64) (*User, error)
 }

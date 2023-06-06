@@ -47,7 +47,7 @@ func (s *userService) Create(ctx context.Context, user *goChat.User, password st
 	return nil
 }
 
-func (s *userService) FindById(ctx context.Context, id int64) (*goChat.User, error) {
+func (s *userService) FindById(ctx context.Context, id goChat.Id) (*goChat.User, error) {
 	const op = service + "FindById"
 
 	query := `

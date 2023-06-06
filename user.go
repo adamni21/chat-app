@@ -5,8 +5,10 @@ import (
 	"time"
 )
 
+type Id = int64
+
 type User struct {
-	Id       int64
+	Id       Id
 	Username string
 	Email    string
 	Verified bool
@@ -19,5 +21,5 @@ type User struct {
 
 type UserService interface {
 	Create(ctx context.Context, user *User, password string) error
-	FindById(ctx context.Context, id int64) (*User, error)
+	FindById(ctx context.Context, id Id) (*User, error)
 }

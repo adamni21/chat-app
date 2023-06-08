@@ -7,8 +7,8 @@ import (
 type ErrCode = uint16
 
 const (
-	Internal ErrCode = 1
-	NotFound ErrCode = 2
+	EInternal ErrCode = 1
+	ENotFound ErrCode = 2
 )
 
 type Error struct {
@@ -24,5 +24,5 @@ func (e Error) Error() string {
 }
 
 func NewInternalErr(message, op string, err error) Error {
-	return Error{Code: Internal, Message: message, Op: op, Err: err}
+	return Error{Code: EInternal, Message: message, Op: op, Err: err}
 }

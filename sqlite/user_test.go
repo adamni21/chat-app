@@ -59,7 +59,7 @@ func TestFindById(t *testing.T) {
 			Email:    "mail@mail.com",
 			Verified: false,
 		}
-		MustCreateUser(t, ctx, s, user)
+		MustCreateUser(t, ctx, s, user, "password")
 
 		if foundUser, err := s.FindById(ctx, 1); err != nil {
 			t.Fatal(err)
@@ -79,18 +79,15 @@ func InitUserService(t testing.TB, db *sqlite.DB) (goChat.UserService, *sqlite.D
 	if db == nil {
 		db = MustOpenDB(t)
 	}
-
 	s := sqlite.NewUserService(db)
 	ctx := context.Background()
-
 	return s, db, func() { MustCloseDB(t, db) }, ctx
 }
 
-func MustCreateUser(t testing.TB, ctx context.Context, s goChat.UserService, user *goChat.User) *goChat.User {
+func MustCreateUser(t testing.TB, ctx context.Context, s goChat.UserService, user *goChat.User, password string) *goChat.User {
 	t.Helper()
 	if err := s.Create(ctx, user, "password"); err != nil {
 		t.Fatal(err)
 	}
-
 	return user
 }

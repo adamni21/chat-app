@@ -20,11 +20,11 @@ type Error struct {
 
 	// Func in which the error occured.
 	Op string
-	// Nested error.
-	Err error
-
 	// Error message for end user.
 	Message string
+
+	// Nested error.
+	Err error
 }
 
 func (e Error) Error() string {
@@ -53,4 +53,8 @@ func (e Error) ErrMessage() string {
 
 func NewInternalErr(info, op, message string, err error) Error {
 	return Error{Code: EInternal, Info: info, Op: op, Err: err, Message: message}
+}
+
+func NewNotFoundErr(info, op, message string, err error) Error {
+	return Error{Code: ENotFound, Info: info, Op: op, Err: err, Message: message}
 }

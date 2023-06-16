@@ -2,7 +2,6 @@ package crypto
 
 import (
 	"bytes"
-	"crypto/rand"
 	"encoding/hex"
 	"fmt"
 	"strings"
@@ -42,7 +41,7 @@ func NewArgon2Hasher() *argon2Hasher {
 }
 
 func (a *argon2Hasher) Generate(password string) (string, error) {
-	salt, err := generateRandomBytes(a.saltLen)
+	salt, err := GenerateRandomBytes(a.saltLen)
 	if err != nil {
 		return "", fmt.Errorf("generating random salt: %w", err)
 	}
@@ -105,14 +104,4 @@ func parseArgonString(argonString string) (params *argonParams, hash, salt []byt
 	err = nil
 
 	return
-}
-
-func generateRandomBytes(n uint32) ([]byte, error) {
-	b := make([]byte, n)
-	_, err := rand.Read(b)
-	if err != nil {
-		return nil, err
-	}
-
-	return b, nil
 }

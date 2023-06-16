@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS sessions (
+    id TEXT NOT NULL UNIQUE,
+    userId INTEGER NOT NULL REFERENCES users (id),
+    expiry TEXT NOT NULL
+)

@@ -3,7 +3,9 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"fmt"
+	"time"
 
 	"github.com/adamni21/goChat"
 	"github.com/adamni21/goChat/crypto"
@@ -11,16 +13,52 @@ import (
 
 const authServiceOp = "sqlite.AuthService."
 
+// Authservice represents a service for authentication
 type AuthService struct {
 	db       *DB
 	pwHasher crypto.PasswordHasher
 }
 
+// returns new instance of AuthService
 func NewAuthService(db *DB) *AuthService {
 	return &AuthService{
 		db:       db,
 		pwHasher: crypto.NewArgon2Hasher(),
 	}
+}
+
+// Verifies user and creates new session for specified user.
+// Returns id of created session.
+//
+// Returns ENotFound if user doesn't exist.
+// Returns EUnauthorized if credentials are invalid.
+// Can return EInternal.
+func (s *AuthService) Login(ctx context.Context, user goChat.User, password string) (goChat.Session, error) {
+	const op = authServiceOp + "Login"
+	correct, err := s.VerifyUser(ctx, user, password)
+	if err != nil {
+		return goChat.Session{}, goChat.Error{Op: op, Err: err}
+	}
+	if !correct {
+		return goChat.Session{}, goChat.NewUnauthorizedErr("", op, "Wrong password.", nil)
+	}
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return goChat.Session{}, goChat.Error{Op: op, Err: err}
+	}
+	defer tx.Rollback()
+
+	session, err := createSession(ctx, tx, user.Id)
+	if err != nil {
+		return goChat.Session{}, goChat.Error{Op: op, Err: err}
+	}
+
+	if err = tx.Commit(); err != nil {
+		return goChat.Session{}, goChat.NewInternalErr("committing sessionTx", op, "", err)
+	}
+
+	return session, nil
 }
 
 // Returns bool whether password is correct.
@@ -39,6 +77,31 @@ func (s *AuthService) VerifyUser(ctx context.Context, user goChat.User, password
 		return false, goChat.Error{Op: op, Err: err}
 	}
 	return isCorrect, nil
+}
+
+func createSession(ctx context.Context, tx *Tx, userId goChat.Id) (goChat.Session, error) {
+	const op = "createSession"
+	sessionId, err := crypto.GenerateRandomBytes(16)
+	if err != nil {
+		return goChat.Session{}, goChat.NewInternalErr("generate random bytes", op, "", err)
+	}
+
+	b64SessionId := base64.URLEncoding.EncodeToString(sessionId)
+	expiry := tx.now.Add(30 * 24 * time.Hour).Truncate(time.Second)
+	query := `
+		INSERT INTO sessions (id, userId, expiry)
+		VALUES (?, ?, ?)
+	`
+	_, err = tx.Exec(query, b64SessionId, userId, (*NullTime)(&expiry))
+	if err != nil {
+		return goChat.Session{}, goChat.NewInternalErr("inserting into sessions table", op, "", err)
+	}
+
+	return goChat.Session{
+		Id:     goChat.SessionId(b64SessionId),
+		UserId: userId,
+		Expiry: expiry,
+	}, nil
 }
 
 // Retrieves password from DB for specified user.

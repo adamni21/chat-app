@@ -1,14 +1,18 @@
 package goChat
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
-// Array of bytes encoded to base64 string.
+// [16]byte array encoded to base64URL string.
 type SessionId string
 
 // Represents a session.
 type Session struct {
-	SessionId SessionId
-	UserId    Id
+	Id     SessionId
+	UserId Id
+	Expiry time.Time
 }
 
 type AuthService interface {
@@ -17,7 +21,7 @@ type AuthService interface {
 	//
 	// Returns ENotFound if user doesn't exist.
 	// Returns EUnauthorized if credentials are invalid.
-	// Login(ctx context.Context, user User, password string) (SessionId, error)
+	Login(ctx context.Context, user User, password string) (Session, error)
 
 	// Deletes specified session.
 	//

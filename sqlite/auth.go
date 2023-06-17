@@ -67,12 +67,12 @@ func (s *AuthService) Login(ctx context.Context, user goChat.User, password stri
 // Can return EInternal.
 func (s *AuthService) VerifyUser(ctx context.Context, user goChat.User, password string) (bool, error) {
 	const op = authServiceOp + "VerifyUser"
-	passwordHash, err := s.getPasswordHash(user)
+	passwordDigest, err := s.getPasswordDigest(user)
 	if err != nil {
 		return false, goChat.Error{Op: op, Err: err}
 	}
 
-	isCorrect, err := s.pwHasher.Verify(password, passwordHash)
+	isCorrect, err := s.pwHasher.Verify(password, passwordDigest)
 	if err != nil {
 		return false, goChat.Error{Op: op, Err: err}
 	}
@@ -104,20 +104,20 @@ func createSession(ctx context.Context, tx *Tx, userId goChat.Id) (goChat.Sessio
 	}, nil
 }
 
-// Retrieves password from DB for specified user.
+// Retrieves password digest from DB for specified user.
 //
 // Returns ENotFound if user doesn't exist.
-func (s *AuthService) getPasswordHash(user goChat.User) (string, error) {
-	const op = "getPasswordHash"
-	var passwordHash string
+func (s *AuthService) getPasswordDigest(user goChat.User) (string, error) {
+	const op = "getPasswordDigest"
+	var passwordDigest string
 	query := `
 		SELECT passwordString FROM users
 		WHERE id = ?;
 	`
-	err := s.db.db.QueryRow(query, user.Id).Scan(&passwordHash)
+	err := s.db.db.QueryRow(query, user.Id).Scan(&passwordDigest)
 	if err == sql.ErrNoRows {
 		info := fmt.Sprintf("user not found, this indicates a bug, user: %+v", user)
 		return "", goChat.NewNotFoundErr(info, op, "", err)
 	}
-	return passwordHash, nil
+	return passwordDigest, nil
 }

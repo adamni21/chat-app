@@ -61,6 +61,32 @@ func (s *AuthService) Login(ctx context.Context, user goChat.User, password stri
 	return session, nil
 }
 
+// Retrieves a single session by sessionId.
+//
+// Returns ENotFound error if specified sessionId doesn't exist.
+// Can return EInternal
+func (s *AuthService) FindSession(ctx context.Context, sessionId goChat.SessionId) (*goChat.Session, error) {
+	const op = authServiceOp + "FindSession"
+	session := &goChat.Session{}
+
+	query := `
+		SELECT id, userId, expiry FROM sessions
+		WHERE id = ?;
+	`
+	row := s.db.db.QueryRowContext(ctx, query, sessionId)
+	err := row.Scan(&session.Id, &session.UserId, (*NullTime)(&session.Expiry))
+	if err != nil {
+		info := fmt.Sprintf("sessionId: %s", sessionId)
+		if err == sql.ErrNoRows {
+			return nil, goChat.NewNotFoundErr(info, op, "", nil)
+		}
+
+		return nil, goChat.NewInternalErr(info, op, "", err)
+	}
+
+	return session, nil
+}
+
 // Returns bool whether password is correct.
 //
 // Returns ENotFound if user doesn't exist.

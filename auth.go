@@ -28,10 +28,10 @@ type AuthService interface {
 	// 	Returns ENotFound if session doesn't exist.
 	// DeleteSession(ctx context.Context, sessionId SessionId) error
 
-	// Retrieves userId for given sessionId.
+	// Retrieves a single session by sessionId.
 	//
 	// Returns ENotFound error if specified sessionId doesn't exist.
-	// UserId(ctx context.Context, sessionId SessionId) (Id, error)
+	FindSession(ctx context.Context, sessionId SessionId) (*Session, error)
 
 	// Returns true if credentials are valid.
 	//

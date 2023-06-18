@@ -11,7 +11,7 @@ import (
 
 func TestCreate(t *testing.T) {
 	t.Run("can create user", func(t *testing.T) {
-		s, _, closeDB, ctx := InitUserService(t, nil)
+		s, _, closeDB, ctx := InitUserService(t)
 		defer closeDB()
 
 		username, email, verified := "user0", "mail@mail.com", false
@@ -51,7 +51,7 @@ func TestCreate(t *testing.T) {
 
 func TestFindById(t *testing.T) {
 	t.Run("can find user by id", func(t *testing.T) {
-		s, _, closeDB, ctx := InitUserService(t, nil)
+		s, _, closeDB, ctx := InitUserService(t)
 		defer closeDB()
 
 		user := &goChat.User{
@@ -74,11 +74,9 @@ func TestFindById(t *testing.T) {
 }
 
 // pass shared db if used by multiple services, otherwise pass nil
-func InitUserService(t testing.TB, db *sqlite.DB) (goChat.UserService, *sqlite.DB, func(), context.Context) {
+func InitUserService(t testing.TB) (goChat.UserService, *sqlite.DB, func(), context.Context) {
 	t.Helper()
-	if db == nil {
-		db = MustOpenDB(t)
-	}
+	db := MustOpenDB(t)
 	s := sqlite.NewUserService(db)
 	ctx := context.Background()
 	return s, db, func() { MustCloseDB(t, db) }, ctx

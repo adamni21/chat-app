@@ -2,16 +2,19 @@ package sqlite_test
 
 import (
 	"context"
+	"encoding/base64"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/adamni21/goChat"
+	"github.com/adamni21/goChat/crypto"
 	"github.com/adamni21/goChat/sqlite"
 )
 
 func TestLogin(t *testing.T) {
-	authService, db, closeDB, ctx := InitAuthService(t, nil, nil)
-	userService, _, _, _ := InitUserService(t, db)
+	authService, db, closeDB, ctx := InitAuthService(t)
+	userService := sqlite.NewUserService(db)
 	defer closeDB()
 
 	password := "password"
@@ -86,8 +89,8 @@ func TestLogin(t *testing.T) {
 }
 
 func TestVerifyUser(t *testing.T) {
-	authService, db, closeDB, ctx := InitAuthService(t, nil, nil)
-	userService, _, _, _ := InitUserService(t, db)
+	authService, db, closeDB, ctx := InitAuthService(t)
+	userService := sqlite.NewUserService(db)
 	defer closeDB()
 
 	password := "password"
@@ -132,14 +135,33 @@ func TestVerifyUser(t *testing.T) {
 	})
 }
 
-func InitAuthService(t testing.TB, db *sqlite.DB, ctx context.Context) (goChat.AuthService, *sqlite.DB, func(), context.Context) {
+func MustCreateSession(t testing.TB, ctx context.Context, db *sqlite.DB, session *goChat.Session) {
 	t.Helper()
-	if db == nil {
-		db = MustOpenDB(t)
+	sessionId, err := crypto.GenerateRandomBytes(16)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if ctx == nil {
-		ctx = context.Background()
+
+	session.Id = goChat.SessionId(base64.URLEncoding.EncodeToString(sessionId))
+	session.Expiry = time.Now().UTC().Add(30 * 24 * time.Hour).Truncate(time.Second)
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
 	}
+	query := `
+		INSERT INTO sessions (id, userId, expiry)
+		VALUES (?, ?, ?)
+	`
+	_, err = tx.Exec(query, session.Id, session.UserId, (*sqlite.NullTime)(&session.Expiry))
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func InitAuthService(t testing.TB) (goChat.AuthService, *sqlite.DB, func(), context.Context) {
+	t.Helper()
+	db := MustOpenDB(t)
+	ctx := context.Background()
 	s := sqlite.NewAuthService(db)
 	return s, db, func() { MustCloseDB(t, db) }, ctx
 }

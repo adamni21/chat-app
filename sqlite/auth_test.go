@@ -80,6 +80,30 @@ func TestLogin(t *testing.T) {
 	})
 }
 
+// successfully delete a session
+func TestDeleteSession(t *testing.T) {
+	authService, db, closeDB, ctx := InitAuthService(t)
+	userService := sqlite.NewUserService(db)
+	defer closeDB()
+
+	user := &goChat.User{
+		Username: "user0",
+		Email:    "test@mail.io",
+	}
+	MustCreateUser(t, ctx, userService, user, "")
+
+	session := &goChat.Session{UserId: user.Id}
+	MustCreateSession(t, ctx, db, session)
+
+	authService.DeleteSession(ctx, session.Id)
+
+	_, err := authService.FindSession(ctx, session.Id)
+	goChatErr, ok := err.(goChat.Error)
+	if !ok || goChatErr.ErrCode() != goChat.ENotFound {
+		t.Fatalf("expected ENotFound got %+v", err)
+	}
+}
+
 func TestFindSession(t *testing.T) {
 	authService, db, closeDB, ctx := InitAuthService(t)
 	userService := sqlite.NewUserService(db)

@@ -32,7 +32,6 @@ func NewAuthService(db *DB) *AuthService {
 //
 // Returns ENotFound if user doesn't exist.
 // Returns EUnauthorized if credentials are invalid.
-// Can return EInternal.
 func (s *AuthService) Login(ctx context.Context, user goChat.User, password string) (goChat.Session, error) {
 	const op = authServiceOp + "Login"
 	correct, err := s.VerifyUser(ctx, user, password)
@@ -61,10 +60,29 @@ func (s *AuthService) Login(ctx context.Context, user goChat.User, password stri
 	return session, nil
 }
 
+// Deletes specified session.
+func (s *AuthService) DeleteSession(ctx context.Context, sessionId goChat.SessionId) error {
+	const op = authServiceOp + "DeleteSession"
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return goChat.NewInternalErr("", op, "", err)
+	}
+	defer tx.Rollback()
+
+	_, err = tx.Exec("DELETE FROM sessions WHERE id = ?;", sessionId)
+	if err != nil {
+		return goChat.NewInternalErr("deleting session from DB", op, "", err)
+	}
+	err = tx.Commit()
+	if err != nil {
+		return goChat.NewInternalErr("committing session delete tx", op, "", err)
+	}
+	return nil
+}
+
 // Retrieves a single session by sessionId.
 //
 // Returns ENotFound error if specified sessionId doesn't exist.
-// Can return EInternal
 func (s *AuthService) FindSession(ctx context.Context, sessionId goChat.SessionId) (*goChat.Session, error) {
 	const op = authServiceOp + "FindSession"
 	session := &goChat.Session{}
@@ -90,7 +108,6 @@ func (s *AuthService) FindSession(ctx context.Context, sessionId goChat.SessionI
 // Returns bool whether password is correct.
 //
 // Returns ENotFound if user doesn't exist.
-// Can return EInternal.
 func (s *AuthService) VerifyUser(ctx context.Context, user goChat.User, password string) (bool, error) {
 	const op = authServiceOp + "VerifyUser"
 	passwordDigest, err := s.getPasswordDigest(user)

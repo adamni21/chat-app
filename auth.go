@@ -24,9 +24,7 @@ type AuthService interface {
 	Login(ctx context.Context, user User, password string) (Session, error)
 
 	// Deletes specified session.
-	//
-	// 	Returns ENotFound if session doesn't exist.
-	// DeleteSession(ctx context.Context, sessionId SessionId) error
+	DeleteSession(ctx context.Context, sessionId SessionId) error
 
 	// Retrieves a single session by sessionId.
 	//

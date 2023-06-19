@@ -41,21 +41,13 @@ func TestLogin(t *testing.T) {
 			t.Fatalf("expected Expiry")
 		}
 
-		var persistedSession goChat.Session
-		rows, err := db.QueryContext(ctx, "SELECT id, userId, expiry FROM sessions;")
-		defer rows.Close()
+		persistedSession, err := authService.FindSession(ctx, session.Id)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !rows.Next() {
-			t.Fatal("couldn't find created session in DB")
-		}
-		err = rows.Scan(&persistedSession.Id, &persistedSession.UserId, (*sqlite.NullTime)(&persistedSession.Expiry))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if !reflect.DeepEqual(session, persistedSession) {
-			t.Fatalf("session not stored correctly got %+v want %+v", persistedSession, session)
+
+		if !reflect.DeepEqual(session, *persistedSession) {
+			t.Fatalf("session not stored correctly got %+v want %+v", *persistedSession, session)
 		}
 	})
 
